@@ -4,19 +4,11 @@ const tls = require('tls');
 const app = express().set("json spaces", 2)
 const PORT = process.env.PORT || 15787;
 
-const getFlag = (code) => {
-    const flagOffset = 127397;
-    return code
-        ? [...code.toUpperCase()].map(c => String.fromCodePoint(c.charCodeAt() + flagOffset)).join('')
-        : '❓';
-};
-
 app.get('/:ipPort', async (req, res) => {
     const [proxy, port = 443] = req.params.ipPort.split(':');
     if (!proxy || !port) {
-        return res.json({ proxyip: "false" });
+        return res.json({ error: "mana proxynya?" });
     }
-
     const sendRequest = (host, path, useProxy = true) => {
         return new Promise((resolve, reject) => {
             const socket = tls.connect({
@@ -53,18 +45,14 @@ app.get('/:ipPort', async (req, res) => {
         });
     };
 
-    const startTime = Date.now(); // Menyimpan waktu saat request dimulai
-
     try {
         const [ipinfo, myips] = await Promise.all([
             sendRequest('myip.bexcode.us.to', '/', true),
             sendRequest('myip.bexcode.us.to', '/', false),
         ]);
         const ipingfo = JSON.parse(ipinfo);
-        const { myip, countryCode, ...ipinfoh } = ipingfo;
+        const {myip, ...ipinfoh} = ipingfo
         const srvip = JSON.parse(myips);
-
-        const latency = Date.now() - startTime; // Menghitung latency
 
         if (myip && myip !== srvip.myip) {
             res.json({
@@ -72,17 +60,13 @@ app.get('/:ipPort', async (req, res) => {
                 port: port,
                 proxyip: myip !== srvip.myip,
                 ip: myip,
-                countryCode: countryCode,
-                flag: getFlag(countryCode), 
                 ...ipinfoh,
-                latency: `${latency}ms`, // Pindahkan ke bawah
             });
         } else {
-            res.json({ proxy: proxy, port: port, proxyip: false, latency: `${latency}ms` });
+            res.json({ proxyip: false });
         }
     } catch (error) {
-        const latency = Date.now() - startTime; // Menghitung latency jika terjadi error
-        res.json({ proxy: proxy, port: port, proxyip: false, latency: `${latency}ms` });
+        res.json({ error: error.message, proxyip: false });
     }
 });
 
